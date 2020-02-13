@@ -1,0 +1,109 @@
+#include <SPI.h>
+#include <Ethernet.h>
+#include <Wire.h>
+#include <SHT21.h>  // include SHT21 library
+SHT21 sht;
+//defines for DHT begin
+float tempC = 0;
+float humidity = 0;
+//defines for DHT end
+
+
+
+float blank1 = 0;
+float blank2 = 0;
+int blank3 = 0;
+
+
+byte mac[] = {
+  0x48, 0xC2, 0xA1, 0xF3, 0x8D, 0xB7
+};
+byte ip[] = {
+  192, 168, 1, 109
+};
+
+EthernetServer server = EthernetServer(80);
+
+void setup()
+{
+  Serial.begin(9600);
+  Ethernet.begin(mac, ip);
+  server.begin();
+  Wire.begin();
+}
+
+void loop()
+{
+  EthernetClient client = server.available();
+  if (client)
+  {
+    tempC = sht.getTemperature();
+    humidity = sht.getHumidity();
+    Serial.println(blank3);
+    blank1 =  sht.getTemperature();
+    blank2 = sht.getHumidity();
+    blank3 = getSmoke();
+
+    boolean BlankLine = true;
+    while (client.connected())
+    {
+      if (client.available())
+      {
+        char c = client.read();
+
+        if (c == '\n' && BlankLine)
+        {
+          client.println("HTTP/1.1 200 OK");
+          client.println("Content-Type: text/html\n");
+          client.println("<html><head><META HTTP-EQUIV=""refresh"" CONTENT=""5"">\n");
+          client.println("<title>Web Server V1.0</title></head>");
+          client.println("<body style=\"background-color:#f3f007\">\n");
+          client.println("<h1>Web Server</h1>");
+          client.println("<h3>Temperatur: </h3>");
+          client.println(blank1);
+          client.println("&deg;C");
+          client.println("<br><br><br>");
+          client.println("<h3>R&#252tub&#601t: </h3>");
+          client.println(blank2);
+          client.println("%");
+          client.println("<br><br><br>");
+          client.println("<h3>Yan&#287&#305n olma ehtimal&#305: </h3>");
+          //blank3 = blank3*100;
+          client.println(blank3);
+          client.println("%");
+          client.println("</body>\n</html>");
+          break;
+        }
+        if (c == '\n')
+        {
+          BlankLine = true;
+        }
+        else if (c != '\r')
+        {
+          BlankLine = false;
+        }
+      }
+    }
+    delay(10);
+    client.stop();
+  }
+}
+
+int getSmoke() {
+
+  //defines gas sensor begin
+  int sensorVAl = 0;
+  int avgSensorVal = 0;
+  int filteredVal = 0;
+  int percentVal = 0;
+  //defines gas sensor end
+
+  sensorVAl = analogRead(A0);
+  for (int i = 0; i < 25; i++) {
+    sensorVAl = analogRead(A0);
+    avgSensorVal = (sensorVAl * 0.4) + (sensorVAl * 0.6);
+    delay(1);
+  }
+  percentVal = map(avgSensorVal, 0, 300, 0, 100);
+  return percentVal;
+}
